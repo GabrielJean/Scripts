@@ -1,4 +1,8 @@
 #!/bin/bash
+# This script is meant to be used to provision docker on a new ubuntu server.
+# Written by Gabriel Jean - 2019-08-27
+
+# Check if user is root
 if [[ $EUID -ne 0 ]]; then
    echo "This script must be run as root" 
    exit 1
@@ -7,7 +11,7 @@ fi
 # Install updates and basic tools
 apt update
 apt upgrade -y
-apt install git htop wget curl
+apt install -y git htop wget curl
 
 
 # Install docker dependencies 
@@ -28,7 +32,12 @@ add-apt-repository \
    stable"
 
 # Install docker
-apt-get install docker-ce
+apt-get -y install docker-ce
+
+## Install Docker-Compose
+sudo curl -L "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
 
 # Start and Enable Docker 
 systemctl start docker && systemctl enable docker
