@@ -22,7 +22,7 @@ sudo dnf config-manager \
     https://download.docker.com/linux/fedora/docker-ce.repo
 
 # Install docker 
-dnf install docker-ce docker-ce-cli containerd.io
+dnf install -y docker-ce docker-ce-cli containerd.io
 
 
 ## Install Docker-Compose
