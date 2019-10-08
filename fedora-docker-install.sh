@@ -11,8 +11,8 @@ fi
 
 # Install updates and basic tools
 echo fastestmirror=1 >> /etc/dnf/dnf.conf
-apt dnf update -y 
-apt dnf install -y git htop wget curl
+dnf update -y 
+dnf install -y git htop wget curl
 
 # Set up the docker repository
 dnf -y install dnf-plugins-core
