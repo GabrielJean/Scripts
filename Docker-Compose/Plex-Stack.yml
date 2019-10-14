@@ -8,7 +8,7 @@ services:
       - PGID=1000
       - TZ=America/Toronto
     volumes:
-      - /opt/:/config
+      - /opt:/config
       - Plex-nfs:/downloads #Path to transmission *
     ports:
       - 9117:9117
