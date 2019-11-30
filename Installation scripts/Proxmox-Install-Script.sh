@@ -21,5 +21,5 @@ if [ $reboot = "y" ]; then
     reboot
 fi
 
-echo "Server properly Installed with Docker"
+echo "Proxmox Server successfully configured"
 
