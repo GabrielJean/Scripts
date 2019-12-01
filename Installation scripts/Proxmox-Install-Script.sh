@@ -15,6 +15,8 @@ apt update
 apt upgrade -y
 apt install -y htop
 
+sed -i.bak "s/data.status !== 'Active'/false/g" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js && systemctl restart pveproxy.service
+
 echo "Do you want to restart the server ? [y/n]"
 read reboot
 if [ $reboot = "y" ]; then
