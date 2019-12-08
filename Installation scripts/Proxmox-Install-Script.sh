@@ -9,8 +9,6 @@ echo "deb http://download.proxmox.com/debian/pve buster pve-no-subscription" >> 
 
 sed -i '1 s/^/#/' /etc/apt/sources.list.d/pve-enterprise.list
 
-sed -i.bak "s/data.status !== 'Active'/false/g" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js && systemctl restart pveproxy.service
-
 apt update
 apt upgrade -y
 apt install -y htop
