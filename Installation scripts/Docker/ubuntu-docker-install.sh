@@ -43,10 +43,10 @@ sudo chmod +x /usr/local/bin/docker-compose
 systemctl start docker && systemctl enable docker
 
 # Reboot server
-echo "Do you want to restart the server ? [y/n]"
-read reboot
-if [ $reboot = "y" ]; then
-    reboot
-fi
+#echo "Do you want to restart the server ? [y/n]"
+# read reboot
+# if [ $reboot = "y" ]; then
+#     reboot
+# fi
 
-echo "Server properly Installed with Docker"
+echo "Server properly Installed with Docker, if updates were applied you should probably reboot"
