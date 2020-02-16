@@ -9,6 +9,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # Install updates and basic tools
+DEBIAN_FRONTEND=noninteractive
 apt update
 apt upgrade -y
 apt install -y git htop wget curl
