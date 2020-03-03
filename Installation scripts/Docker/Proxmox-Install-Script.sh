@@ -5,9 +5,13 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-echo "deb http://download.proxmox.com/debian/pve buster pve-no-subscription" >> /etc/apt/sources.list
+echo "Do you want to install pve-no-subscription repository ? [y/n]"
+read repo
+if [ $repo = "y" ]; then
+   echo "deb http://download.proxmox.com/debian/pve buster pve-no-subscription" >> /etc/apt/sources.list
+   sed -i '1 s/^/#/' /etc/apt/sources.list.d/pve-enterprise.list
+fi
 
-sed -i '1 s/^/#/' /etc/apt/sources.list.d/pve-enterprise.list
 
 apt update
 apt upgrade -y
