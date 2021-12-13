@@ -1,3 +1,9 @@
+if [ "$(id -u)" -eq 0 ]
+  then echo "Please do not run as root"
+  exit
+fi
+
+
 echo "Install updates"
 sudo apt update && sudo apt upgrade -y
 
