@@ -3,6 +3,14 @@ if [ "$(id -u)" -eq 0 ]
   exit
 fi
 
+sudo echo ""
+
+if [[ $? -eq 1 ]]
+then
+	exit
+fi
+
+read -p "Do you want Docker? [y/n]: " -n 1 -r dockerInstall
 
 echo "Install updates"
 sudo apt update && sudo apt upgrade -y
@@ -16,13 +24,17 @@ curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 echo "Installing Kubectl"
 sudo az aks install-cli
 
-echo "Installing Docker"
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
+if [[ $dockerInstall =~ ^[Yy]$ ]]
+then
+	echo "Installing Docker"
+	curl -fsSL https://get.docker.com -o get-docker.sh
+	sudo sh get-docker.sh
+	
+	echo "Install Docker-Compose"
+	sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+	sudo chmod +x /usr/local/bin/docker-compose
 
-echo "Install Docker-Compose"
-sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
+fi
 
 echo "Install ZSH"
 sudo apt install -y zsh
