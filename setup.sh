@@ -1,3 +1,4 @@
+#!/bin/bash
 if [ "$(id -u)" -eq 0 ]
   then echo "Please do not run as root"
   exit
@@ -7,15 +8,15 @@ sudo echo ""
 
 if [[ $? -eq 1 ]]
 then
-	exit
+        exit
 fi
 
-read -p "Do you want Docker? [y/n]: " -n 1 -r dockerInstall
+read -p $'Do you want Docker? [y/n]:' -n 1 -r dockerInstall
 
-echo "Install updates"
+echo $'\nInstalling updates'
 sudo apt update && sudo apt upgrade -y
 
-echo "Install packages"
+echo "Installing common packages"
 sudo apt install git htop curl wget
 
 echo "Installing Azure CLI"
@@ -26,20 +27,20 @@ sudo az aks install-cli
 
 if [[ $dockerInstall =~ ^[Yy]$ ]]
 then
-	echo "Installing Docker"
-	curl -fsSL https://get.docker.com -o get-docker.sh
-	sudo sh get-docker.sh
-	
-	echo "Install Docker-Compose"
-	sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-	sudo chmod +x /usr/local/bin/docker-compose
+        echo "Installing Docker"
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sudo sh get-docker.sh
+
+        echo "Install Docker-Compose"
+        sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
 
 fi
 
-echo "Install ZSH"
+echo "Installing ZSH"
 sudo apt install -y zsh
 
-echo "Install prezto"
+echo "Installing prezto"
 zsh -c 'git clone --recursive https://github.com/sorin-ionescu/prezto.git "${ZDOTDIR:-$HOME}/.zprezto"'
 
 zsh -c 'setopt EXTENDED_GLOB
