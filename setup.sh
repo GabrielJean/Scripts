@@ -50,6 +50,10 @@ for rcfile in "${ZDOTDIR:-$HOME}"/.zprezto/runcoms/^README.md(.N); do
 
 echo "autoload -U +X bashcompinit && bashcompinit
 source /etc/bash_completion.d/azure-cli
-source <(kubectl completion zsh)" >> .zshrc
+source <(kubectl completion zsh)" >> $HOME/.zshrc
 
-sudo chsh -s /bin/zsh gabriel
+username=$(whoami)
+sudo chsh -s /bin/zsh $username
+
+git config --global credential.helper store
+
