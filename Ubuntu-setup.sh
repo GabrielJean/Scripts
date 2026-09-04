@@ -1,145 +1,144 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Installs common tools, Zsh, and Prezto for the invoking user.
+# Run as: ./install-dev-setup.sh
+# It will use sudo when required. Do not run `sudo -i` first unless you
+# intentionally want to configure root's shell.
 
-# Run privileged commands directly when already root. For other users, use
-# non-interactive sudo so the script never unexpectedly prompts for a password.
-if [ "$(id -u)" -eq 0 ]; then
+set -Eeuo pipefail
+
+if [[ $(id -u) -eq 0 ]]; then
+    # sudo preserves SUDO_USER, so `sudo ./install-dev-setup.sh` still
+    # configures the person who invoked sudo rather than root.
+    TARGET_USER=${SUDO_USER:-root}
     run_as_root() { "$@"; }
 else
-    if ! command -v sudo >/dev/null 2>&1; then
-        echo "This script must run as root or with passwordless sudo."
-        exit 1
-    fi
-
-    if ! sudo -n -v >/dev/null 2>&1; then
-        echo "This script requires root access or passwordless sudo."
-        echo "Run it as root, or configure sudo to allow the required commands without a password."
-        exit 1
-    fi
-
-    run_as_root() { sudo -n "$@"; }
+    TARGET_USER=$(id -un)
+    run_as_root() { sudo "$@"; }
 fi
 
-# Optional installs (default = No)
-read -rp "Install Azure CLI? [y/N]: " azureInstall
+TARGET_HOME=$(getent passwd "$TARGET_USER" | awk -F: '{print $6}')
+if [[ -z $TARGET_HOME || ! -d $TARGET_HOME ]]; then
+    echo "Cannot determine a valid home directory for $TARGET_USER." >&2
+    exit 1
+fi
+
+# ZDOTDIR is normally unset. If it is set, respect it only when it is an
+# absolute path; otherwise keep all Zsh files in the target user's home.
+if [[ ${ZDOTDIR:-} == /* ]]; then
+    TARGET_ZDOTDIR=$ZDOTDIR
+else
+    TARGET_ZDOTDIR=$TARGET_HOME
+fi
+PREZTO_DIR="$TARGET_ZDOTDIR/.zprezto"
+
+run_as_target() {
+    if [[ $(id -u) -eq 0 && $TARGET_USER != root ]]; then
+        runuser -u "$TARGET_USER" -- env HOME="$TARGET_HOME" ZDOTDIR="$TARGET_ZDOTDIR" "$@"
+    else
+        env HOME="$TARGET_HOME" ZDOTDIR="$TARGET_ZDOTDIR" "$@"
+    fi
+}
+
+read -r -p "Install Azure CLI? [y/N]: " azureInstall
 azureInstall=${azureInstall:-N}
-
-read -rp "Install kubectl? [y/N]: " kubectlInstall
+read -r -p "Install kubectl? [y/N]: " kubectlInstall
 kubectlInstall=${kubectlInstall:-N}
-
-read -rp "Install Docker? [y/N]: " dockerInstall
+read -r -p "Install Docker? [y/N]: " dockerInstall
 dockerInstall=${dockerInstall:-N}
 
 echo
-echo "Updating system..."
-run_as_root apt update
-run_as_root apt upgrade -y
+echo "Updating package lists..."
+run_as_root env DEBIAN_FRONTEND=noninteractive apt-get update
+run_as_root env DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
 
 echo
-echo "Installing common packages..."
-run_as_root apt install -y \
-    git \
-    htop \
-    curl \
-    wget \
-    zsh \
-    bash-completion \
-    ca-certificates \
-    gnupg
+echo "Installing common packages, including Zsh..."
+run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    git htop curl wget zsh bash-completion ca-certificates gnupg
+
+ZSH_PATH=$(command -v zsh)
+if [[ -z $ZSH_PATH || ! -x $ZSH_PATH ]]; then
+    echo "Zsh was not installed successfully." >&2
+    exit 1
+fi
 
 if [[ $azureInstall =~ ^[Yy]$ ]]; then
-    echo
     echo "Installing Azure CLI..."
-    curl -sL https://aka.ms/InstallAzureCLIDeb | run_as_root bash
+    curl -fsSL https://aka.ms/InstallAzureCLIDeb | run_as_root bash
 fi
 
 if [[ $kubectlInstall =~ ^[Yy]$ ]]; then
-    echo
     echo "Installing kubectl..."
-
     kubernetesMinorVersion=$(curl -fsSL https://dl.k8s.io/release/stable.txt | cut -d. -f1,2)
-    if [ -z "$kubernetesMinorVersion" ]; then
-        echo "Unable to determine the current stable Kubernetes version."
+    if [[ -z $kubernetesMinorVersion ]]; then
+        echo "Unable to determine the current stable Kubernetes version." >&2
         exit 1
     fi
 
     run_as_root install -d -m 0755 /etc/apt/keyrings
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/${kubernetesMinorVersion}/deb/Release.key |
-        gpg --dearmor |
-        run_as_root tee /etc/apt/keyrings/kubernetes-apt-keyring.gpg >/dev/null
-
-    printf 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/%s/deb/ /\n' "$kubernetesMinorVersion" |
-        run_as_root tee /etc/apt/sources.list.d/kubernetes.list >/dev/null
-
-    run_as_root apt update
-    run_as_root apt install -y kubectl
+    curl -fsSL "https://pkgs.k8s.io/core:/stable:/${kubernetesMinorVersion}/deb/Release.key" \
+        | gpg --dearmor \
+        | run_as_root tee /etc/apt/keyrings/kubernetes-apt-keyring.gpg >/dev/null
+    printf 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/%s/deb/ /\n' "$kubernetesMinorVersion" \
+        | run_as_root tee /etc/apt/sources.list.d/kubernetes.list >/dev/null
+    run_as_root env DEBIAN_FRONTEND=noninteractive apt-get update
+    run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y kubectl
 fi
 
 if [[ $dockerInstall =~ ^[Yy]$ ]]; then
-    echo
     echo "Installing Docker..."
-
     curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
     run_as_root sh /tmp/get-docker.sh
-    rm /tmp/get-docker.sh
-
-    run_as_root apt install -y docker-compose-plugin
-
-    run_as_root usermod -aG docker "$USER"
-
-    echo
-    echo "Added $USER to the docker group."
-    echo "Log out and back in for the group change to take effect."
+    rm -f /tmp/get-docker.sh
+    run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-plugin
+    run_as_root usermod -aG docker "$TARGET_USER"
 fi
 
 echo
-echo "Installing Prezto..."
-
-if [ ! -d "${ZDOTDIR:-$HOME}/.zprezto" ]; then
-    git clone --recursive \
-        https://github.com/sorin-ionescu/prezto.git \
-        "${ZDOTDIR:-$HOME}/.zprezto"
+echo "Installing Prezto for $TARGET_USER..."
+run_as_target mkdir -p "$TARGET_ZDOTDIR"
+if [[ ! -d $PREZTO_DIR/.git ]]; then
+    if [[ -e $PREZTO_DIR ]]; then
+        echo "$PREZTO_DIR exists but is not a Prezto Git checkout; refusing to overwrite it." >&2
+        exit 1
+    fi
+    run_as_target git clone --recursive https://github.com/sorin-ionescu/prezto.git "$PREZTO_DIR"
+else
+    run_as_target git -C "$PREZTO_DIR" submodule update --init --recursive
 fi
 
-zsh <<'EOF'
-setopt EXTENDED_GLOB
+# Link Prezto's runcom files. Existing non-Prezto dotfiles are retained as
+# timestamped backups instead of being silently overwritten.
+backup_suffix=".before-prezto-$(date +%Y%m%d-%H%M%S)"
+for rcfile in "$PREZTO_DIR"/runcoms/*; do
+    name=$(basename "$rcfile")
+    [[ $name == README.md ]] && continue
+    destination="$TARGET_ZDOTDIR/.$name"
 
-for rcfile in "${ZDOTDIR:-$HOME}"/.zprezto/runcoms/^README.md(.N); do
-    ln -sf "$rcfile" "${ZDOTDIR:-$HOME}/.${rcfile:t}"
+    if [[ -e $destination || -L $destination ]]; then
+        if [[ $(readlink -f "$destination") == $(readlink -f "$rcfile") ]]; then
+            continue
+        fi
+        run_as_target mv "$destination" "${destination}${backup_suffix}"
+        echo "Backed up $destination to ${destination}${backup_suffix}"
+    fi
+    run_as_target ln -s "$rcfile" "$destination"
 done
-EOF
 
-# Configure Zsh
-grep -qxF 'autoload -U +X bashcompinit && bashcompinit' "$HOME/.zshrc" 2>/dev/null || \
-echo 'autoload -U +X bashcompinit && bashcompinit' >> "$HOME/.zshrc"
+# Prezto's default completion module handles Zsh completions. In particular,
+# don't append to ~/.zshrc here: it is a symlink into the Prezto repository.
+# Put personal additions in ~/.zpreztorc or manage a separate local file.
 
-if command -v az >/dev/null 2>&1; then
-    grep -qxF 'source /etc/bash_completion.d/azure-cli' "$HOME/.zshrc" 2>/dev/null || \
-    echo 'source /etc/bash_completion.d/azure-cli' >> "$HOME/.zshrc"
-fi
+echo "Setting Zsh as the default shell for $TARGET_USER..."
+run_as_root chsh -s "$ZSH_PATH" "$TARGET_USER"
 
-if command -v kubectl >/dev/null 2>&1; then
-    grep -qxF 'source <(kubectl completion zsh)' "$HOME/.zshrc" 2>/dev/null || \
-    echo 'source <(kubectl completion zsh)' >> "$HOME/.zshrc"
-fi
-
-echo
-echo "Setting ZSH as default shell..."
-run_as_root chsh -s "$(which zsh)" "$USER"
-
-echo
-echo "Configuring Git..."
-git config --global credential.helper store
+run_as_target git config --global credential.helper store
 
 echo
 echo "========================================"
-echo "Setup complete!"
+echo "Setup complete for $TARGET_USER"
 echo "========================================"
-
 if [[ $dockerInstall =~ ^[Yy]$ ]]; then
-    echo
-    echo "Docker was installed."
-    echo "Please log out and back in before using Docker."
+    echo "Log out and back in before using Docker."
 fi
-
-echo
-echo "Restart your terminal (or log out and back in) to begin using Zsh."
+echo "Open a new terminal (or log out and back in) to start Zsh with Prezto."
